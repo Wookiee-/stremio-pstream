@@ -121,13 +121,14 @@ async def get_stream(kind: str, sid: str):
         )
         scraped: list[ScrapedStream] = [s for lst in scraped_lists for s in lst]
         for s in scraped:
-            tag = f"{s.quality} {s.server}"
-            # Provider headers (Referer/Origin) + a browser UA, mirrored into
-            # both direct headers and proxy headers for proxied clients.
+            # Keep the quality on a single line in BOTH fields: some clients
+            # (e.g. Nuvio) render the name single-line and would cut anything
+            # after a newline, hiding the resolution.
+            sub_note = f" | {len(s.subtitles)} subs" if s.subtitles else ""
             req_headers = {"User-Agent": PLAYER_UA, **s.headers}
             entry: dict = {
-                "name": f"{ADDON_NAME}\n{s.server} {s.quality}",
-                "title": tag,
+                "name": f"{ADDON_NAME} {s.quality}",
+                "title": f"{s.server} {s.quality}{sub_note}",
                 "url": s.url,
             }
             hints: dict = {
