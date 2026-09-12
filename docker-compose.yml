@@ -1,0 +1,33 @@
+# stremio-pstream — local run:  docker compose up --build
+# Full-base variant:        docker compose --profile full up --build
+services:
+  stremio-pstream:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "7003:7003"
+    restart: unless-stopped
+    environment:
+      - CACHE_TTL=300
+      - PROVIDER_TIMEOUT=25
+      - UPSTREAM_MAX_CONNECTIONS=10
+      - UPSTREAM_MAX_KEEPALIVE=5
+      # - TMDB_API_KEY=
+      # - LOG_LEVEL=DEBUG
+
+  stremio-pstream-full:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    ports:
+      - "7003:7003"
+    restart: unless-stopped
+    environment:
+      - CACHE_TTL=300
+      - PROVIDER_TIMEOUT=25
+      - UPSTREAM_MAX_CONNECTIONS=10
+      - UPSTREAM_MAX_KEEPALIVE=5
+      # - TMDB_API_KEY=
+      # - LOG_LEVEL=DEBUG
