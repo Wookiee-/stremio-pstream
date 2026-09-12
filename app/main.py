@@ -142,32 +142,26 @@ async def get_stream(kind: str, sid: str):
         )
         scraped: list[ScrapedStream] = [s for lst in scraped_lists for s in lst]
         for s in scraped:
-            # Keep the quality on a single line in BOTH fields: some clients
-            # (e.g. Nuvio) render the name single-line and would cut anything
-            # after a newline, hiding the resolution.
-            sub_note = f" | {len(s.subtitles)} subs" if s.subtitles else ""
-            req_headers = {"User-Agent": PLAYER_UA, **s.headers}
+            # Stream shape mirrors stremio-movy (proven to render in Nuvio):
+            # name/title/url + behaviorHints{bingeGroup, proxyHeaders} only.
+            # Extra keys (top-level subtitles/description, behaviorHints.headers)
+            # are omitted — Nuvio's parser doesn't know them.
+            label = f"{s.server} ({s.quality})"
+            req_headers = {"Referer": s.headers.get("Referer", ""),
+                           "Origin": s.headers.get("Origin", ""),
+                           "User-Agent": PLAYER_UA}
+            req_headers = {k: v for k, v in req_headers.items() if v}
             entry: dict = {
-                "name": f"{ADDON_NAME} {s.quality}",
-                "title": f"{s.server} {s.quality}{sub_note}",
-                # Nuvio renders `description` (falling back to `title` only in
-                # newer builds) — send it explicitly so server + resolution
-                # always show on the second line.
-                "description": f"{s.server} {s.quality}{sub_note} • direct",
+                "name": f"{ADDON_NAME} {label}",
+                "title": label,
                 "url": s.url,
+                "behaviorHints": {
+                    "bingeGroup": f"pstream-{s.quality or s.server}",
+                    # Stremio forwards these with the direct request, so
+                    # upstream Referer checks pass without proxying.
+                    "proxyHeaders": {"request": req_headers},
+                },
             }
-            hints: dict = {
-                "headers": req_headers,
-                "proxyHeaders": {"request": req_headers},
-            }
-            if s.is_hls:
-                hints["notWebReady"] = False
-            entry["behaviorHints"] = hints
-            if s.subtitles:
-                entry["subtitles"] = [
-                    {"url": sub["url"], "lang": sub.get("lang", "en")}
-                    for sub in s.subtitles
-                ]
             streams.append(entry)
     except Exception as e:
         log.warning("stream handler error for %s: %s", key, e)
