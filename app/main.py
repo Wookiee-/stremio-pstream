@@ -32,8 +32,8 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("stremio-pstream")
 
 ADDON_ID = os.getenv("ADDON_ID", "org.pstream.stremio")
-ADDON_NAME = os.getenv("ADDON_NAME", "P-Stream Direct")
-ADDON_VERSION = "1.1.0"
+ADDON_NAME = os.getenv("ADDON_NAME", "PStream")
+ADDON_VERSION = "1.2.0"
 CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))
 PER_PROVIDER_TIMEOUT = int(os.getenv("PROVIDER_TIMEOUT", "25"))
 
@@ -152,7 +152,7 @@ async def get_stream(kind: str, sid: str):
                            "User-Agent": PLAYER_UA}
             req_headers = {k: v for k, v in req_headers.items() if v}
             entry: dict = {
-                "name": f"{ADDON_NAME} {label}",
+                "name": label,
                 "title": label,
                 "url": s.url,
                 "behaviorHints": {
