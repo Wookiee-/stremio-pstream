@@ -25,7 +25,7 @@ from .providers import vixsrc, vidrock
 from .providers.base import ScrapedStream
 from .resolve import imdb_to_tmdb, split_stremio_id, to_tmdb
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO))
 # httpx logs every upstream GET at INFO - noisy
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
@@ -66,12 +66,9 @@ async def _scrape_provider(client, provider, kind, tmdb, imdb, season, episode):
                     out = await provider.scrape_tv(client, imdb, season, episode)
             return out
     except Exception as e:
-        # Don't spam logs on rate-limits — degrade visibly but quietly.
-        # 429s never trip breakers (rate-limit, not outage).
-        if "429" in str(e):
-            log.debug("%s 429 suppressed", provider.__name__)
-        else:
-            log.warning("%s error: %s", provider.__name__, e)
+        # Routine upstream misses (404s, timeouts) stay quiet at debug level;
+        # run with LOG_LEVEL=DEBUG to see them. 429s never trip breakers.
+        log.debug("%s: %s", provider.__name__, e)
         return []
 
 app = FastAPI(title=ADDON_NAME, lifespan=lifespan)
@@ -164,7 +161,7 @@ async def get_stream(kind: str, sid: str):
             }
             streams.append(entry)
     except Exception as e:
-        log.warning("stream handler error for %s: %s", key, e)
+        log.debug("stream handler error for %s: %s", key, e)
         streams = []
 
     _cache[key] = (now, streams)

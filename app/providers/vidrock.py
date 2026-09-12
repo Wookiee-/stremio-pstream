@@ -52,7 +52,7 @@ def _circuit_open() -> bool:
 def _trip_circuit(backoff: float = _CIRCUIT_BACKOFF) -> None:
     global _down_until
     _down_until = time.time() + backoff
-    log.warning("vidrock backing off for %.0fs", backoff)
+    log.debug("vidrock backing off for %.0fs", backoff)
 
 
 def decrypt_url(enc: str) -> str:
@@ -88,11 +88,11 @@ async def _scrape(client: httpx.AsyncClient, api_url: str) -> list[ScrapedStream
     try:
         r = await client.get(api_url, headers={"User-Agent": UA}, timeout=20)
     except (httpx.ConnectError, httpx.TimeoutException) as e:
-        log.warning("vidrock unreachable: %s", e)
+        log.debug("vidrock unreachable: %s", e)
         _trip_circuit()
         return []
     if r.status_code >= 500:
-        log.warning("vidrock %s on %s — backing off", r.status_code, api_url)
+        log.debug("vidrock %s on %s — backing off", r.status_code, api_url)
         _trip_circuit()
         return []
     if r.status_code != 200:

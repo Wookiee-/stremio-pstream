@@ -45,7 +45,7 @@ def _circuit_open() -> bool:
 def _trip_circuit(backoff: float = _CIRCUIT_BACKOFF) -> None:
     global _down_until
     _down_until = time.time() + backoff
-    log.warning("vixsrc backing off for %.0fs", backoff)
+    log.debug("vixsrc backing off for %.0fs", backoff)
 
 
 async def _fetch(client: httpx.AsyncClient, url: str, referer: str | None = None) -> httpx.Response:
@@ -76,12 +76,12 @@ async def _scrape(client: httpx.AsyncClient, api_url: str) -> list[ScrapedStream
         r = await _fetch(client, api_url)
     except (httpx.ConnectError, httpx.TimeoutException) as e:
         # Upstream unreachable — open the circuit, fail fast.
-        log.warning("vixsrc unreachable: %s", e)
+        log.debug("vixsrc unreachable: %s", e)
         _trip_circuit()
         return []
     if r.status_code >= 500:
         # Upstream outage (not rate-limit) — back off.
-        log.warning("vixsrc %s on %s — backing off", r.status_code, api_url)
+        log.debug("vixsrc %s on %s — backing off", r.status_code, api_url)
         _trip_circuit()
         return []
     data = r.json()
