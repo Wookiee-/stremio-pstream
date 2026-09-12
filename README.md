@@ -38,6 +38,26 @@ become one stream per rendition, all returned with the `Referer` the
 upstreams gate on (passed to Stremio via `behaviorHints.headers`).
 Server availability varies per title (same as on P-Stream itself).
 
+## Provider coverage
+
+P-Stream aggregates ~40 providers, but only two are usable for direct
+(client-side) links right now:
+
+- **VixSrc + VidRock** (shipped) — plain HLS/MP4 behind a `Referer` check,
+  which Stremio can send via `behaviorHints.headers`.
+- **vidsrc.to chain** (cracked, not shipped) — full flow reversed
+  (`vs_src.php` → embed `CFG` → `metaApi&stream_urls` → per-window WASM
+  ChaCha20 decrypt → per-host `/generate.php` JWT), but the JWT carries
+  `ip_cidr` of the minter, so VPS-minted links won't play on other clients.
+  This family needs P-Stream-style proxying, which this addon avoids by design.
+- **Rest of the open catalog** (vidsrc.net, soaper, catflix, vidapi.click,
+  ridomovies, zoechip, mp4hydra, embed.su, warezcdn, wecima, vidjoy, …) —
+  probed Sep 2026: parked domains, dead DNS/TLS, ISP-blocked, "back soon"
+  pages, or login-token gated. Re-probe later; each survivor is one new
+  module in `PROVIDERS` (`app/main.py`).
+- **Closed providers** (Stellar, VidFast, VidLink, …) run through P-Stream's
+  signed proxy and can't be mirrored without leeching their infrastructure.
+
 To add a provider, implement `scrape_movie(client, tmdb_id)` /
 `scrape_tv(client, tmdb_id, season, episode)` returning
 `list[ScrapedStream]` (see `app/providers/base.py`), then call it from
