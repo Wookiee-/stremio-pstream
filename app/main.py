@@ -33,7 +33,7 @@ log = logging.getLogger("stremio-pstream")
 
 ADDON_ID = os.getenv("ADDON_ID", "org.pstream.stremio")
 ADDON_NAME = os.getenv("ADDON_NAME", "P-Stream Direct")
-ADDON_VERSION = "1.0.0"
+ADDON_VERSION = "1.1.0"
 CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))
 PER_PROVIDER_TIMEOUT = int(os.getenv("PROVIDER_TIMEOUT", "25"))
 
@@ -150,6 +150,10 @@ async def get_stream(kind: str, sid: str):
             entry: dict = {
                 "name": f"{ADDON_NAME} {s.quality}",
                 "title": f"{s.server} {s.quality}{sub_note}",
+                # Nuvio renders `description` (falling back to `title` only in
+                # newer builds) — send it explicitly so server + resolution
+                # always show on the second line.
+                "description": f"{s.server} {s.quality}{sub_note} • direct",
                 "url": s.url,
             }
             hints: dict = {
