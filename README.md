@@ -116,4 +116,6 @@ Optional env vars:
 - `GET /manifest.json` — Stremio manifest
 - `GET /stream/movie/{tt}.json` — e.g. `/stream/movie/tt0076759.json`
 - `GET /stream/series/{tt:s:e}.json` — e.g. `/stream/series/tt9288030:1:1.json`
+- `GET /resolve/{movie|series}/{tt}.json` — IMDb→TMDB with title/seasons,
+  e.g. `/resolve/series/tt13111078.json` (diagnose empty results)
 - `GET /health`
