@@ -32,6 +32,16 @@ ADDON_VERSION = "1.0.0"
 CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))
 PER_PROVIDER_TIMEOUT = int(os.getenv("PROVIDER_TIMEOUT", "25"))
 
+# Player-facing request headers. Proven live against every upstream: without
+# these, VidRock hosts 403 and VixSrc embeds refuse. Sent two ways so playback
+# works however the client fetches:
+#   behaviorHints.headers               -> direct playback (desktop/Android/mpv)
+#   behaviorHints.proxyHeaders.request  -> via Stremio's proxy (Web / thin clients)
+PLAYER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+)
+
 PROVIDERS = (vixsrc, vidrock)
 
 
@@ -112,18 +122,21 @@ async def get_stream(kind: str, sid: str):
         scraped: list[ScrapedStream] = [s for lst in scraped_lists for s in lst]
         for s in scraped:
             tag = f"{s.quality} {s.server}"
+            # Provider headers (Referer/Origin) + a browser UA, mirrored into
+            # both direct headers and proxy headers for proxied clients.
+            req_headers = {"User-Agent": PLAYER_UA, **s.headers}
             entry: dict = {
                 "name": f"{ADDON_NAME}\n{s.server} {s.quality}",
                 "title": tag,
                 "url": s.url,
             }
+            hints: dict = {
+                "headers": req_headers,
+                "proxyHeaders": {"request": req_headers},
+            }
             if s.is_hls:
-                entry["behaviorHints"] = {
-                    "headers": s.headers,
-                    "notWebReady": False,
-                }
-            else:
-                entry["behaviorHints"] = {"headers": s.headers}
+                hints["notWebReady"] = False
+            entry["behaviorHints"] = hints
             if s.subtitles:
                 entry["subtitles"] = [
                     {"url": sub["url"], "lang": sub.get("lang", "en")}

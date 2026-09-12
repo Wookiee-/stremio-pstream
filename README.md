@@ -20,7 +20,10 @@ and plays it. This addon does the server-side equivalent in Python:
 3. Each provider scrapes its upstream API -> embed page -> master `.m3u8`
    (text only) and returns **one entry per resolution** with the server name.
 4. Stremio plays the direct rendition URLs with the required
-   `Referer`/`Origin` headers (sent via `behaviorHints.headers`).
+   `Referer`/`Origin`/`User-Agent` headers, sent both as
+   `behaviorHints.headers` (direct players: desktop/Android/mpv) and
+   `behaviorHints.proxyHeaders.request` (clients that play via Stremio's
+   proxy, e.g. Web/thin clients).
 
 Current providers (`app/providers/`, fanned out concurrently per request):
 
