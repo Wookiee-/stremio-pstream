@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from .http import get_client, lifespan
 from .providers import vixsrc, vidrock
 from .providers.base import ScrapedStream
-from .resolve import split_stremio_id, to_tmdb
+from .resolve import imdb_to_tmdb, split_stremio_id, to_tmdb
 
 log = logging.getLogger("stremio-pstream")
 
@@ -155,3 +155,17 @@ async def get_stream(kind: str, sid: str):
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+@app.get("/resolve/{kind}/{imdb}.json")
+async def resolve_imdb(kind: str, imdb: str):
+    """IMDb -> TMDB mapping with title/seasons (diagnose empty results).
+
+    e.g. /resolve/movie/tt0076759.json -> {"tmdb": "11", "title": ...}
+    """
+    if imdb.endswith(".json"):
+        imdb = imdb[: -len(".json")]
+    if kind not in ("movie", "series") or not imdb.startswith("tt"):
+        return JSONResponse({"error": "use /resolve/{movie|series}/tt....json"})
+    client = await get_client()
+    return JSONResponse(await imdb_to_tmdb(client, kind, imdb))

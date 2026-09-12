@@ -28,28 +28,90 @@ async def to_tmdb(client: httpx2.AsyncClient, kind: str, imdb: str) -> str:
     """Return TMDB numeric id as str, or the original imdb on failure."""
     if not imdb.startswith("tt"):
         return imdb  # already a TMDB id
+    hit = await imdb_to_tmdb(client, kind, imdb)
+    return hit["tmdb"] or imdb
+
+
+async def imdb_to_tmdb(client: httpx2.AsyncClient, kind: str, imdb: str) -> dict:
+    """Full IMDb -> TMDB mapping with title/seasons for diagnostics.
+
+    Chain: Cinemeta meta (moviedb_id + name) -> TMDB /find by IMDb id ->
+    TMDB /search by title from Cinemeta. Returns dict with tmdb (str|None),
+    title, year and, for series, seasons + the source that matched.
+    """
+    out: dict = {"imdb": imdb, "kind": kind, "tmdb": None,
+                 "title": None, "year": None, "via": None, "seasons": []}
+    title_hint: str | None = None
+
+    # 1. Cinemeta (Stremio's own metadata).
     try:
         r = await client.get(f"{CINEMETA}/{kind}/{imdb}.json", headers=UA, timeout=10)
         r.raise_for_status()
-        mid = r.json().get("meta", {}).get("moviedb_id")
-        if mid:
-            return str(mid)
+        meta = r.json().get("meta", {})
+        if meta.get("moviedb_id"):
+            out["tmdb"] = str(meta["moviedb_id"])
+            out["via"] = "cinemeta"
+        if meta.get("name"):
+            title_hint = meta["name"]
     except Exception:
         pass
-    # Fallback: TMDB /find with IMDb id (tiny JSON, no media bandwidth).
+
+    # 2. TMDB /find by external IMDb id.
+    if not out["tmdb"]:
+        try:
+            r = await client.get(
+                f"{TMDB_API}/find/{imdb}",
+                params={"api_key": TMDB_API_KEY, "external_source": "imdb_id"},
+                headers=UA,
+                timeout=10,
+            )
+            r.raise_for_status()
+            data = r.json()
+            results = data.get("movie_results" if kind == "movie" else "tv_results", [])
+            if results:
+                out["tmdb"] = str(results[0]["id"])
+                out["via"] = "tmdb-find"
+        except Exception:
+            pass
+
+    # 3. TMDB /search by title (from Cinemeta) as last resort.
+    if not out["tmdb"] and title_hint:
+        try:
+            r = await client.get(
+                f"{TMDB_API}/search/{'movie' if kind == 'movie' else 'tv'}",
+                params={"api_key": TMDB_API_KEY, "query": title_hint},
+                headers=UA,
+                timeout=10,
+            )
+            r.raise_for_status()
+            results = r.json().get("results", [])
+            if results:
+                out["tmdb"] = str(results[0]["id"])
+                out["via"] = "tmdb-search"
+        except Exception:
+            pass
+
+    if not out["tmdb"]:
+        return out
+
+    # 4. Details: title/year (+ season list for series) to verify episodes exist.
     try:
         r = await client.get(
-            f"{TMDB_API}/find/{imdb}",
-            params={"api_key": TMDB_API_KEY, "external_source": "imdb_id"},
+            f"{TMDB_API}/{'movie' if kind == 'movie' else 'tv'}/{out['tmdb']}",
+            params={"api_key": TMDB_API_KEY},
             headers=UA,
             timeout=10,
         )
         r.raise_for_status()
-        data = r.json()
-        if kind == "movie" and data.get("movie_results"):
-            return str(data["movie_results"][0]["id"])
-        if kind == "series" and data.get("tv_results"):
-            return str(data["tv_results"][0]["id"])
+        d = r.json()
+        out["title"] = d.get("title" if kind == "movie" else "name")
+        date = d.get("release_date" if kind == "movie" else "first_air_date") or ""
+        out["year"] = date[:4] or None
+        if kind == "series":
+            out["seasons"] = [
+                {"n": s.get("season_number"), "episodes": s.get("episode_count")}
+                for s in d.get("seasons", [])
+            ]
     except Exception:
         pass
-    return imdb
+    return out
