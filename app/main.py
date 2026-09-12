@@ -196,8 +196,10 @@ async def debug_upstreams():
         try:
             params = {"api_key": "db55323b8d3e4154498498a75642b381"} if name == "tmdb-find" else None
             r = await client.get(url, params=params, timeout=10)
+            body = r.text[:200].replace("\n", " ")
             out[name] = {"status": r.status_code, "bytes": len(r.content),
-                         "ms": int((_time.time() - t0) * 1000)}
+                         "ms": int((_time.time() - t0) * 1000),
+                         "body_head": body}
         except Exception as e:
             out[name] = {"status": None, "error": f"{type(e).__name__}: {e}",
                          "ms": int((_time.time() - t0) * 1000)}
