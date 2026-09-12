@@ -25,7 +25,7 @@ from .providers import vixsrc, vidrock
 from .providers.base import ScrapedStream
 from .resolve import imdb_to_tmdb, split_stremio_id, to_tmdb
 
-logging.basicConfig(level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO))
+logging.basicConfig(level=getattr(logging, os.getenv("LOG_LEVEL", "ERROR").upper(), logging.ERROR))
 # httpx logs every upstream GET at INFO - noisy
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
@@ -172,6 +172,36 @@ async def get_stream(kind: str, sid: str):
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+@app.get("/debug/upstreams")
+async def debug_upstreams():
+    """Reachability of every upstream from THIS server (no video fetched).
+
+    Returns per-host status/latency/error so VPS network blocks are visible
+    without server-shell access.
+    """
+    import time as _time
+
+    client = await get_client()
+    probes = {
+        "cinemeta": "https://v3-cinemeta.strem.io/meta/movie/tt0076759.json",
+        "tmdb-find": "https://api.themoviedb.org/3/find/tt0076759?external_source=imdb_id",
+        "vixsrc-api": "https://vixsrc.to/api/movie/11",
+        "vidrock-api": "https://vidrock.net/api/movie/11",
+    }
+    out: dict = {}
+    for name, url in probes.items():
+        t0 = _time.time()
+        try:
+            params = {"api_key": "db55323b8d3e4154498498a75642b381"} if name == "tmdb-find" else None
+            r = await client.get(url, params=params, timeout=10)
+            out[name] = {"status": r.status_code, "bytes": len(r.content),
+                         "ms": int((_time.time() - t0) * 1000)}
+        except Exception as e:
+            out[name] = {"status": None, "error": f"{type(e).__name__}: {e}",
+                         "ms": int((_time.time() - t0) * 1000)}
+    return JSONResponse(out)
 
 
 @app.get("/resolve/{kind}/{imdb}.json")
