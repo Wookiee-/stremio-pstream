@@ -92,12 +92,12 @@ Install in Stremio with the manifest URL:
 http://YOUR-VPS-IP:7003/manifest.json
 ```
 
-Stack: Granian (ASGI server, no uvicorn) + shared httpx2 upstream client
-capped at 10 max connections / 5 keepalive (`app/http.py`), so concurrent
-Stremio requests don't block each other. Providers add a circuit breaker
-(`app/providers/vixsrc.py`): on upstream 5xx / connect errors the provider
-backs off for 30s instead of hammering it (429s never trip it — rate-limit,
-not outage). Failures are logged, never silently swallowed.
+Stack: Granian (ASGI server, no uvicorn) + shared httpx (HTTP/2) upstream
+client capped at 10 max connections / 5 keepalive (`app/http.py`), so
+concurrent Stremio requests don't block each other. Providers add a circuit
+breaker (`app/providers/vixsrc.py`): on upstream 5xx / connect errors the
+provider backs off for 30s instead of hammering it (429s never trip it —
+rate-limit, not outage). Failures are logged, never silently swallowed.
 
 Optional env vars:
 

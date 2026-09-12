@@ -6,7 +6,7 @@ so prefer TMDB via Cinemeta with graceful fallback to the raw id.
 """
 from __future__ import annotations
 
-import httpx2
+import httpx
 import os
 
 CINEMETA = "https://v3-cinemeta.strem.io/meta"
@@ -19,12 +19,20 @@ UA = {"User-Agent": "stremio-pstream/1.0"}
 def split_stremio_id(stream_id: str) -> tuple[str, int | None, int | None]:
     parts = stream_id.split(":")
     imdb = parts[0]
-    season = int(parts[1]) if len(parts) > 1 else None
-    episode = int(parts[2]) if len(parts) > 2 else None
+    # Accept "imdb:tt..." / "tmdb:123" prefixed ids too.
+    if imdb in ("imdb", "tmdb") and len(parts) > 1:
+        imdb = parts[1]
+        parts = [imdb, *parts[2:]]
+    season = None
+    episode = None
+    if len(parts) > 1 and parts[1].isdigit():
+        season = int(parts[1])
+    if len(parts) > 2 and parts[2].isdigit():
+        episode = int(parts[2])
     return imdb, season, episode
 
 
-async def to_tmdb(client: httpx2.AsyncClient, kind: str, imdb: str) -> str:
+async def to_tmdb(client: httpx.AsyncClient, kind: str, imdb: str) -> str:
     """Return TMDB numeric id as str, or the original imdb on failure."""
     if not imdb.startswith("tt"):
         return imdb  # already a TMDB id
@@ -32,7 +40,7 @@ async def to_tmdb(client: httpx2.AsyncClient, kind: str, imdb: str) -> str:
     return hit["tmdb"] or imdb
 
 
-async def imdb_to_tmdb(client: httpx2.AsyncClient, kind: str, imdb: str) -> dict:
+async def imdb_to_tmdb(client: httpx.AsyncClient, kind: str, imdb: str) -> dict:
     """Full IMDb -> TMDB mapping with title/seasons for diagnostics.
 
     Chain: Cinemeta meta (moviedb_id + name) -> TMDB /find by IMDb id ->

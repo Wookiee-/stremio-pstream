@@ -21,7 +21,7 @@ import logging
 import time
 from urllib.parse import urljoin
 
-import httpx2
+import httpx
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from .base import ScrapedStream
@@ -71,23 +71,23 @@ def _player_headers() -> dict[str, str]:
     return {"Referer": REFERER, "Origin": "https://vidrock.net"}
 
 
-async def scrape_movie(client: httpx2.AsyncClient, tmdb_or_imdb: str) -> list[ScrapedStream]:
+async def scrape_movie(client: httpx.AsyncClient, tmdb_or_imdb: str) -> list[ScrapedStream]:
     return await _scrape(client, f"{API}/movie/{tmdb_or_imdb}")
 
 
 async def scrape_tv(
-    client: httpx2.AsyncClient, tmdb_or_imdb: str, season: int, episode: int
+    client: httpx.AsyncClient, tmdb_or_imdb: str, season: int, episode: int
 ) -> list[ScrapedStream]:
     return await _scrape(client, f"{API}/tv/{tmdb_or_imdb}/{season}/{episode}")
 
 
-async def _scrape(client: httpx2.AsyncClient, api_url: str) -> list[ScrapedStream]:
+async def _scrape(client: httpx.AsyncClient, api_url: str) -> list[ScrapedStream]:
     if _circuit_open():
         log.info("vidrock backing off — skipping %s", api_url)
         return []
     try:
         r = await client.get(api_url, headers={"User-Agent": UA}, timeout=20)
-    except (httpx2.ConnectError, httpx2.TimeoutException) as e:
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
         log.warning("vidrock unreachable: %s", e)
         _trip_circuit()
         return []
@@ -117,11 +117,11 @@ async def _scrape(client: httpx2.AsyncClient, api_url: str) -> list[ScrapedStrea
 
 
 async def _resolve_source(
-    client: httpx2.AsyncClient, server: str, info: dict, url: str
+    client: httpx.AsyncClient, server: str, info: dict, url: str
 ) -> list[ScrapedStream]:
     try:
         r = await client.get(url, headers=_headers(), timeout=20)
-    except (httpx2.ConnectError, httpx2.TimeoutException) as e:
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
         log.debug("vidrock source %s unreachable: %s", server, e)
         return []
     if r.status_code != 200:

@@ -1,5 +1,5 @@
 fastapi>=0.110
 granian>=2.0
-httpx2>=2.0
+httpx[http2]>=0.28
 cryptography>=41
 pydantic>=2.0

@@ -17,13 +17,18 @@ import os
 import time
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from .http import get_client, lifespan
 from .providers import vixsrc, vidrock
 from .providers.base import ScrapedStream
 from .resolve import imdb_to_tmdb, split_stremio_id, to_tmdb
 
+logging.basicConfig(level=logging.INFO)
+# httpx logs every upstream GET at INFO - noisy
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("stremio-pstream")
 
 ADDON_ID = os.getenv("ADDON_ID", "org.pstream.stremio")
@@ -70,6 +75,11 @@ async def _scrape_provider(client, provider, kind, tmdb, imdb, season, episode):
         return []
 
 app = FastAPI(title=ADDON_NAME, lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+)
 
 _cache: dict[str, tuple[float, list[dict]]] = {}
 
@@ -82,15 +92,25 @@ def manifest() -> dict:
         "description": "Direct HLS links with resolutions per server (P-Stream style). No video proxied via VPS.",
         "resources": ["stream"],
         "types": ["movie", "series"],
-        "idPrefixes": ["tt"],
+        "idPrefixes": ["tt", "imdb:", "tmdb:"],
         "catalogs": [],
         "behaviorHints": {"configurable": False},
     }
 
 
-@app.get("/", include_in_schema=False)
+@app.get("/", response_class=HTMLResponse)
 async def index():
-    return RedirectResponse("/manifest.json")
+    return HTMLResponse(f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{ADDON_NAME} - Stremio Addon</title>
+<style>*{{margin:0;padding:0;box-sizing:border-box}}body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a2e;color:#eee;min-height:100vh;display:flex;align-items:center;justify-content:center}}.container{{max-width:600px;padding:40px;text-align:center}}h1{{font-size:2.5rem;margin-bottom:10px;color:#7b2ff7}}.subtitle{{color:#aaa;margin-bottom:30px;font-size:1.1rem}}.card{{background:#16213e;border-radius:12px;padding:30px;margin-bottom:20px}}.install-btn{{display:inline-block;background:#7b2ff7;color:white;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:1.1rem;font-weight:600}}code{{background:#0f3460;padding:2px 8px;border-radius:4px}}</style>
+</head><body><div class="container">
+<h1>&#9654; {ADDON_NAME}</h1>
+<p class="subtitle">FastAPI + Granian + HTTP/2 &middot; direct streams</p>
+<div class="card"><a href="stremio:///manifest.json" class="install-btn">Install in Stremio</a>
+<p style="color:#888;margin-top:15px">Direct upstream URLs with Referer via proxyHeaders &mdash; no server bandwidth.</p></div>
+<div class="card"><h3>Manual install</h3><p><code>/manifest.json</code> on this host</p></div>
+</div></body></html>""")
 
 
 @app.get("/manifest.json")
@@ -111,6 +131,7 @@ async def get_stream(kind: str, sid: str):
         return JSONResponse({"streams": _cache[key][1]})
 
     imdb, season, episode = split_stremio_id(sid)
+    log.info("stream request: kind=%s id=%s -> %s s=%s e=%s", kind, sid, imdb, season, episode)
     streams: list[dict] = []
     try:
         client = await get_client()
@@ -149,6 +170,7 @@ async def get_stream(kind: str, sid: str):
         streams = []
 
     _cache[key] = (now, streams)
+    log.info("returning %d direct stream(s) for %s", len(streams), key)
     return JSONResponse({"streams": streams})
 
 

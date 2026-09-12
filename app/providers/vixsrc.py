@@ -13,7 +13,7 @@ import logging
 import re
 import time
 
-import httpx2
+import httpx
 
 from .base import ScrapedStream
 from .hls import parse_master, subtitle_tracks
@@ -48,7 +48,7 @@ def _trip_circuit(backoff: float = _CIRCUIT_BACKOFF) -> None:
     log.warning("vixsrc backing off for %.0fs", backoff)
 
 
-async def _fetch(client: httpx2.AsyncClient, url: str, referer: str | None = None) -> httpx2.Response:
+async def _fetch(client: httpx.AsyncClient, url: str, referer: str | None = None) -> httpx.Response:
     headers = {"User-Agent": UA}
     if referer:
         headers["Referer"] = referer
@@ -57,24 +57,24 @@ async def _fetch(client: httpx2.AsyncClient, url: str, referer: str | None = Non
     return r
 
 
-async def scrape_movie(client: httpx2.AsyncClient, tmdb_or_imdb: str) -> list[ScrapedStream]:
+async def scrape_movie(client: httpx.AsyncClient, tmdb_or_imdb: str) -> list[ScrapedStream]:
     return await _scrape(client, f"{API}/api/movie/{tmdb_or_imdb}")
 
 
 async def scrape_tv(
-    client: httpx2.AsyncClient, tmdb_or_imdb: str, season: int, episode: int
+    client: httpx.AsyncClient, tmdb_or_imdb: str, season: int, episode: int
 ) -> list[ScrapedStream]:
     return await _scrape(client, f"{API}/api/tv/{tmdb_or_imdb}/{season}/{episode}")
 
 
-async def _scrape(client: httpx2.AsyncClient, api_url: str) -> list[ScrapedStream]:
+async def _scrape(client: httpx.AsyncClient, api_url: str) -> list[ScrapedStream]:
     # Early exit while backing off — don't fire requests with an open circuit.
     if _circuit_open():
         log.info("vixsrc backing off — skipping %s", api_url)
         return []
     try:
         r = await _fetch(client, api_url)
-    except (httpx2.ConnectError, httpx2.TimeoutException) as e:
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
         # Upstream unreachable — open the circuit, fail fast.
         log.warning("vixsrc unreachable: %s", e)
         _trip_circuit()
