@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .http import get_client, lifespan
-from .providers import vixsrc, vidrock
+from .providers import vidrock
 from .providers.base import ScrapedStream
 from .resolve import imdb_to_tmdb, split_stremio_id, to_tmdb
 
@@ -38,7 +38,7 @@ CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))
 PER_PROVIDER_TIMEOUT = int(os.getenv("PROVIDER_TIMEOUT", "25"))
 
 # Player-facing request headers. Proven live against every upstream: without
-# these, VidRock hosts 403 and VixSrc embeds refuse. Sent two ways so playback
+# these, VidRock hosts 403. Sent two ways so playback
 # works however the client fetches:
 #   behaviorHints.headers               -> direct playback (desktop/Android/mpv)
 #   behaviorHints.proxyHeaders.request  -> via Stremio's proxy (Web / thin clients)
@@ -47,7 +47,7 @@ PLAYER_UA = (
     "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 )
 
-PROVIDERS = (vixsrc, vidrock)
+PROVIDERS = (vidrock,)
 
 
 async def _scrape_provider(client, provider, kind, tmdb, imdb, season, episode):
@@ -187,7 +187,6 @@ async def debug_upstreams():
     probes = {
         "cinemeta": "https://v3-cinemeta.strem.io/meta/movie/tt0076759.json",
         "tmdb-find": "https://api.themoviedb.org/3/find/tt0076759?external_source=imdb_id",
-        "vixsrc-api": "https://vixsrc.to/api/movie/11",
         "vidrock-api": "https://vidrock.net/api/movie/11",
     }
     out: dict = {}

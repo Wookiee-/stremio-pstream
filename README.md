@@ -29,7 +29,6 @@ Current providers (`app/providers/`, fanned out concurrently per request):
 
 | Server | Movies | Series | Output |
 |---|---|---|---|
-| VixSrc | yes | yes | 1080p / 720p / 480p HLS + subtitles |
 | VidRock Nova / Atlas / Luna / Orion / Astra | yes | yes | per-server resolutions (HLS masters or MP4 quality lists) |
 
 VidRock notes: its `/api` returns AES-256-GCM-encrypted server URLs
@@ -46,7 +45,7 @@ Server availability varies per title (same as on P-Stream itself).
 P-Stream aggregates ~40 providers, but only two are usable for direct
 (client-side) links right now:
 
-- **VixSrc + VidRock** (shipped) — plain HLS/MP4 behind a `Referer` check,
+- **VidRock** (shipped) — plain HLS/MP4 behind a `Referer` check,
   which Stremio can send via `behaviorHints.headers`.
 - **vidsrc.to chain** (cracked, not shipped) — full flow reversed
   (`vs_src.php` → embed `CFG` → `metaApi&stream_urls` → per-window WASM
@@ -95,7 +94,7 @@ http://YOUR-VPS-IP:7003/manifest.json
 Stack: Granian (ASGI server, no uvicorn) + shared httpx (HTTP/2) upstream
 client capped at 10 max connections / 5 keepalive (`app/http.py`), so
 concurrent Stremio requests don't block each other. Providers add a circuit
-breaker (`app/providers/vixsrc.py`): on upstream 5xx / connect errors the
+breaker (`app/providers/vidrock.py`): on upstream 5xx / connect errors the
 provider backs off for 30s instead of hammering it (429s never trip it —
 rate-limit, not outage). Failures are logged, never silently swallowed.
 
